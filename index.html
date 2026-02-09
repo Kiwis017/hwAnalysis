@@ -522,6 +522,108 @@
       margin-top: 6px;
     }
 
+
+    /* 导入错题表格模块：更“融入”整体卡片风格（不刺眼） */
+    .wrong-file-box {
+      border: 1px solid var(--border);
+      background: rgba(37, 99, 235, .035);
+      border-radius: 12px;
+      padding: 10px 10px 10px;
+      margin-top: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 左侧细色条，做到“区分但不吵” */
+    .wrong-file-box::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      opacity: .85;
+    }
+
+    /* 红色版本（更醒目）：用于错题集导入模块 */
+    .wrong-file-box.wrong-red {
+      background: rgba(220, 38, 38, .04);
+    }
+
+    .wrong-file-box.wrong-red::before {
+      background: linear-gradient(180deg, rgba(220, 38, 38, .95), rgba(239, 68, 68, .85));
+    }
+
+    .wrong-file-box.wrong-red .btn-wrongfile {
+      border-color: rgba(220, 38, 38, .26);
+      background: rgba(220, 38, 38, .07);
+    }
+
+    .wrong-file-box.wrong-red .btn-wrongfile:hover {
+      border-color: rgba(220, 38, 38, .40);
+      background: rgba(220, 38, 38, .12);
+    }
+
+    .wrong-file-box.wrong-red #wrongBigIdsFromFile {
+      border-color: rgba(220, 38, 38, .22);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .wrong-file-box.wrong-red {
+        background: rgba(248, 113, 113, .07);
+      }
+
+      .wrong-file-box.wrong-red #wrongBigIdsFromFile {
+        border-color: rgba(248, 113, 113, .26);
+      }
+    }
+
+    .wrong-file-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 6px;
+      margin-bottom: 8px;
+    }
+
+    .wrong-file-title {
+      font-size: 12.4px;
+      font-weight: 750;
+      letter-spacing: .2px;
+    }
+
+    .wrong-file-sub {
+      margin-left: auto;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    .btn-wrongfile {
+      border-color: rgba(37, 99, 235, .26);
+      background: rgba(37, 99, 235, .08);
+    }
+
+    .btn-wrongfile:hover {
+      border-color: rgba(37, 99, 235, .40);
+      background: rgba(37, 99, 235, .12);
+    }
+
+    #wrongBigIdsFromFile {
+      background: rgba(255, 255, 255, .55);
+      border: 1px dashed rgba(37, 99, 235, .22);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .wrong-file-box {
+        background: rgba(96, 165, 250, .06);
+      }
+      #wrongBigIdsFromFile {
+        background: rgba(255, 255, 255, .03);
+        border-color: rgba(96, 165, 250, .26);
+      }
+    }
+
     #wrongModuleSummary {
       white-space: pre-line;
     }
@@ -790,7 +892,6 @@
           <button class="btn" id="toggleViewBtn" disabled>网格</button>
           <button class="btn" id="exportWrongBtn" disabled>复制表格</button>
           <button class="btn" id="clearAllBtn" disabled>清空</button>
-          <button class="btn" id="copyBigWrongBtn" disabled>复制错题集编号</button>
           <button class="btn" id="selectAllBtn" disabled>全选</button>
           <span class="hint" id="wrongHint"></span>
           <label class="search">
@@ -804,6 +905,20 @@
           <div class="small-hint">可将已有的题号汇总粘贴到下面，系统会自动识别并勾选对应错题。</div>
           <textarea id="wrongIdsPaste" placeholder="粘贴题号，如：1、3、17(1)③、19(5)"></textarea>
           <div class="small-hint" id="wrongIdsPasteHint"></div>
+          <div class="wrong-file-box wrong-red">
+            <div class="wrong-file-head">
+              <div class="wrong-file-title">从错题表格生成错题集（按姓名）</div>
+              <div class="wrong-file-sub">两列：姓名 + 错题</div>
+            </div>
+            <div class="toolbar" style="margin:0 0 8px 0; padding-left:6px;">
+              <input id="wrongFileInput" type="file" accept=".xlsx,.xls,.csv" hidden />
+              <button class="btn btn-wrongfile" id="chooseWrongFileBtn" type="button">导入错题表格</button>
+              <button class="btn btn-wrongfile" id="copyWrongSetTableBtn" type="button" disabled>复制错题集表格</button>
+              <span class="hint" id="wrongFileHint"></span>
+            </div>
+            <textarea id="wrongBigIdsFromFile" placeholder="导入后自动生成（例：1、3、7、11…）" readonly style="width:100%; min-height:56px; resize:vertical; border-radius:10px; padding:8px 10px; font-size:12.2px; color:var(--text);"></textarea>
+            <div class="small-hint" style="padding-left:6px;">表头需包含：姓名、错题（两列）。错题示例：1、3、11①、12(3)、17(1)③。</div>
+          </div>
         </div>
       </section>
       <!-- 4. 错题正确率分析（置于右侧上方） -->
@@ -881,7 +996,37 @@
     const wrongHint = document.getElementById('wrongHint');
     const wrongIdsLine = document.getElementById('wrongIdsLine');
     const wrongIdsPaste = document.getElementById('wrongIdsPaste');
-    const wrongIdsPasteHint = document.getElementById('wrongIdsPasteHint');
+
+    const wrongFileInput = document.getElementById('wrongFileInput');
+    const chooseWrongFileBtn = document.getElementById('chooseWrongFileBtn');
+    const copyWrongSetTableBtn = document.getElementById('copyWrongSetTableBtn');
+    let lastWrongStudentTableText = ''; // TSV: 姓名\t错题集
+    let lastWrongStudentCount = 0;
+
+    async function copyTextToClipboard(text) {
+      const t = String(text || '').trim();
+      if (!t) return false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(t);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = t;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    const wrongBigIdsFromFile = document.getElementById('wrongBigIdsFromFile');
+    const wrongFileHint = document.getElementById('wrongFileHint');
 
     const lowTop3 = document.getElementById('lowTop3');
     const highTop3 = document.getElementById('highTop3');
@@ -889,7 +1034,6 @@
     const selectAllBtn = document.getElementById('selectAllBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
     const exportWrongBtn = document.getElementById('exportWrongBtn');
-    const copyBigWrongBtn = document.getElementById('copyBigWrongBtn');
     const searchInput = document.getElementById('searchInput');
 
     const homeworkModuleSummary = document.getElementById('homeworkModuleSummary');
@@ -1090,6 +1234,188 @@ function wilsonUpperBound(successes, n, z = 1.96) {
         .filter(Boolean);
     }
 
+    function parseWrongCellToItems(cell) {
+      // Split wrong string into items, tolerant to common separators
+      const raw = String(cell ?? '').trim();
+      if (!raw) return [];
+      return raw.split(/[、，,;；\s\n]+/g).map(s => String(s || '').trim()).filter(Boolean);
+    }
+
+    function buildWrongSetForOneStudent(items) {
+      const keep = new Set();
+      const bigCount = new Map();
+
+      for (const it of items) {
+        const s = String(it || '').trim();
+        if (!s) continue;
+
+        // Rule 1: pure digits => keep as-is
+        if (/^\d+$/.test(s)) {
+          keep.add(s);
+          continue;
+        }
+
+        // Rule 2: contains non-digit => big question
+        const m = s.match(/^\d+/);
+        if (!m) continue;
+        const big = m[0];
+        bigCount.set(big, (bigCount.get(big) || 0) + 1);
+      }
+
+      // keep bigId only if appears >= 2
+      for (const [big, cnt] of bigCount.entries()) {
+        if (cnt >= 2) keep.add(big);
+      }
+
+      // sort numerically
+      const arr = Array.from(keep);
+      arr.sort((a, b) => {
+        const na = parseInt(a, 10);
+        const nb = parseInt(b, 10);
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return String(a).localeCompare(String(b), 'zh-CN');
+      });
+      return arr;
+    }
+
+    function pickNameAndWrongColumns(headers) {
+      // headers are normalized (trim)
+      const hs = headers.map(h => String(h ?? '').trim());
+      let nameH = '';
+      let wrongH = '';
+
+      for (const h of hs) {
+        if (!nameH && (h === '姓名' || h.includes('姓名'))) nameH = h;
+        if (!wrongH && (h === '错题' || h.includes('错题'))) wrongH = h;
+      }
+
+      // fallback to first two columns
+      if (!nameH) nameH = hs[0] || '';
+      if (!wrongH) wrongH = hs[1] || hs[0] || '';
+      return { nameH, wrongH };
+    }
+
+    function buildWrongStudentTable(rows, nameKey, wrongKey) {
+      const lines = [];
+      lines.push(['姓名', '错题集'].join('\t'));
+
+      let count = 0;
+      for (const r of rows || []) {
+        const name = String(r?.[nameKey] ?? '').trim();
+        const wrongCell = String(r?.[wrongKey] ?? '').trim();
+        if (!name && !wrongCell) continue;
+        if (!name) continue;
+
+        const items = parseWrongCellToItems(wrongCell);
+        const setArr = buildWrongSetForOneStudent(items);
+        const text = setArr.join('、');
+        lines.push([name.replace(/\t/g, ' '), text.replace(/\t/g, ' ')].join('\t'));
+        count += 1;
+      }
+
+      return { text: lines.join('\n'), count };
+    }
+
+    function extractBigId(id) {
+      const s = String(id ?? '').trim();
+      const m = s.match(/\d+/); // first digit run
+      return m ? m[0] : '';
+    }
+
+    function pickIdColumnFromHeaders(headers) {
+      // Prefer common header names
+      const norm = (h) => String(h ?? '').trim();
+      const hs = headers.map(norm);
+
+      // exact
+      for (const h of hs) {
+        if (h === '题目编号') return h;
+      }
+      // contains
+      for (const h of hs) {
+        if (h.includes('题目编号')) return h;
+        if (h.includes('错题编号')) return h;
+      }
+      // fallback first
+      return hs[0] || '';
+    }
+
+    function buildBigIdsFromWrongTableRows(rows, idKey) {
+      const bigSet = new Set();
+      let rawCount = 0;
+      for (const r of rows) {
+        const v = r[idKey];
+        if (v === undefined || v === null) continue;
+        const id = String(v).trim();
+        if (!id) continue;
+        rawCount += 1;
+        const big = extractBigId(id);
+        if (big) bigSet.add(big);
+      }
+      const uniq = Array.from(bigSet);
+      uniq.sort((a, b) => {
+        const na = parseInt(a, 10);
+        const nb = parseInt(b, 10);
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return String(a).localeCompare(String(b), 'zh-CN');
+      });
+      return { text: uniq.join('、'), bigCount: uniq.length, rawCount };
+    }
+
+    async function handleWrongTableFile(file) {
+      if (!file) return;
+      if (wrongFileHint) wrongFileHint.textContent = '';
+      if (wrongBigIdsFromFile) wrongBigIdsFromFile.value = '';
+      lastWrongStudentTableText = '';
+      lastWrongStudentCount = 0;
+      if (copyWrongSetTableBtn) copyWrongSetTableBtn.disabled = true;
+
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const firstName = wb.SheetNames[0];
+        if (!firstName) throw new Error('未找到工作表。');
+        const sheet = wb.Sheets[firstName];
+
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+        if (!json || json.length === 0) throw new Error('未解析到数据行。');
+
+        const headers = Object.keys(json[0]).map(normalizeKey);
+        const { nameH, wrongH } = pickNameAndWrongColumns(headers);
+
+        // Because json keys are the original header strings, map normalized -> original
+        const originalKeys = Object.keys(json[0]);
+        const keyMap = new Map();
+        for (const ok of originalKeys) keyMap.set(normalizeKey(ok), ok);
+        const nameKey = keyMap.get(nameH) || originalKeys[0];
+        const wrongKey = keyMap.get(wrongH) || originalKeys[Math.min(1, originalKeys.length - 1)] || originalKeys[0];
+
+        // Build per-student wrong-set table
+        const { text, count } = buildWrongStudentTable(json, nameKey, wrongKey);
+        lastWrongStudentTableText = text;
+        lastWrongStudentCount = count;
+
+        // For the small textarea preview, show all distinct bigIds across all students (optional)
+        // Here we reuse the preview textarea as: show the first 6 lines of the student table (excluding header)
+        const previewLines = text.split('\n');
+        const showLines = previewLines.length <= 7 ? previewLines : previewLines.slice(0, 7).concat(['...']);
+        if (wrongBigIdsFromFile) wrongBigIdsFromFile.value = showLines.join('\n');
+
+        if (count === 0) {
+          if (wrongFileHint) wrongFileHint.textContent = '未识别到有效行。请确认表头包含：姓名、错题。';
+          return;
+        }
+
+        if (copyWrongSetTableBtn) copyWrongSetTableBtn.disabled = false;
+        if (wrongFileHint) wrongFileHint.textContent = `已读取 ${count} 位学生（列：${nameKey} / ${wrongKey}）`;
+
+        // “错题集编号”按钮不再适用于该格式，改为复制“错题集表格”即可
+      } catch (err) {
+        if (wrongFileHint) wrongFileHint.textContent = '';
+        showError(err?.message || String(err));
+      }
+    }
+
     function applyWrongIdsFromText(text) {
       if (dataRows.length === 0) return { inputCount: 0, matchedCount: 0 };
       const ids = parseIdList(text);
@@ -1199,87 +1525,6 @@ function wilsonUpperBound(successes, n, z = 1.96) {
       copyText(text);
     }
 
-    function copyWrongBigIdsToClipboard() {
-      const btn = copyBigWrongBtn;
-
-      const setBtn = (label) => { if (btn) btn.textContent = label; };
-      const resetBtnSoon = () => {
-        setTimeout(() => {
-          if (btn) btn.textContent = '复制错题集编号';
-        }, 900);
-      };
-
-      if (dataRows.length === 0) {
-        setBtn('无数据');
-        resetBtnSoon();
-        return;
-      }
-
-      // 来源优先级：已勾选错题 > 粘贴框内容（即使没匹配到表格，也可提取大题号）
-      const sourceIds = wrongSet.size > 0
-        ? Array.from(wrongSet)
-        : (wrongIdsPaste ? parseIdList(wrongIdsPaste.value) : []);
-
-      if (sourceIds.length === 0) {
-        setBtn('无题号');
-        resetBtnSoon();
-        return;
-      }
-
-      // 大题号/题目号：提取“第一个数字串”（允许前面带作业前缀，如 TH-1、ZC2(2) 等）
-      // 例："1" -> "1"；"17(1)③" -> "17"；"TH-1" -> "1"；"ZC2(2)" -> "2"
-      const getBig = (id) => {
-        const s = String(id ?? '').trim();
-        const m = s.match(/\d+/); // 找到第一个连续数字
-        return m ? m[0] : '';
-      };
-
-      const bigSet = new Set();
-      for (const id of sourceIds) {
-        const big = getBig(id);
-        if (big) bigSet.add(big);
-      }
-
-      const uniq = Array.from(bigSet);
-      uniq.sort((a, b) => {
-        const na = parseInt(a, 10);
-        const nb = parseInt(b, 10);
-        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
-        return String(a).localeCompare(String(b), 'zh-CN');
-      });
-
-      const text = uniq.join('、');
-      if (!text) {
-        setBtn('无可输出');
-        resetBtnSoon();
-        return;
-      }
-
-      const copyText = async (t) => {
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(t);
-          } else {
-            const ta = document.createElement('textarea');
-            ta.value = t;
-            ta.setAttribute('readonly', '');
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-          }
-          setBtn('已复制 ✅');
-          resetBtnSoon();
-        } catch (err) {
-          setBtn('复制失败');
-          resetBtnSoon();
-        }
-      };
-
-      copyText(text);
-    }
 
 
     function renderHomeworkModuleSummary() {
@@ -1547,10 +1792,6 @@ function wilsonUpperBound(successes, n, z = 1.96) {
       selectAllBtn.disabled = !hasData;
       clearAllBtn.disabled = !hasData;
       exportWrongBtn.disabled = !(hasData && wrongSet.size > 0);
-      if (copyBigWrongBtn) {
-        const pastedCount = wrongIdsPaste ? parseIdList(wrongIdsPaste.value).length : 0;
-        copyBigWrongBtn.disabled = !(hasData && (wrongSet.size > 0 || pastedCount > 0));
-      }
       if (toggleViewBtn) toggleViewBtn.disabled = !hasData;
       if (copySummaryBtn) copySummaryBtn.disabled = !hasData;
     }
@@ -1667,6 +1908,26 @@ function wilsonUpperBound(successes, n, z = 1.96) {
     // ----------------------------
     chooseBtn.addEventListener('click', () => fileInput.click());
 
+    if (chooseWrongFileBtn && wrongFileInput) {
+      chooseWrongFileBtn.addEventListener('click', () => wrongFileInput.click());
+      wrongFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (file) await handleWrongTableFile(file);
+        wrongFileInput.value = '';
+      });
+    }
+
+
+    if (copyWrongSetTableBtn) {
+      copyWrongSetTableBtn.addEventListener('click', async () => {
+        const text = String(lastWrongStudentTableText || '').trim();
+        if (!text) return;
+        const ok = await copyTextToClipboard(text);
+        copyWrongSetTableBtn.textContent = ok ? '已复制 ✅' : '复制失败';
+        setTimeout(() => { copyWrongSetTableBtn.textContent = '复制错题集表格'; }, 900);
+      });
+    }
+
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (file) await handleFile(file);
@@ -1756,11 +2017,6 @@ function wilsonUpperBound(successes, n, z = 1.96) {
       copyWrongsTableToClipboard();
     });
 
-    if (copyBigWrongBtn) {
-      copyBigWrongBtn.addEventListener('click', () => {
-        copyWrongBigIdsToClipboard();
-      });
-    }
 
     if (toggleViewBtn) {
       toggleViewBtn.addEventListener('click', () => {
@@ -1864,7 +2120,7 @@ function wilsonUpperBound(successes, n, z = 1.96) {
         const firstPara = [a, goodText].filter(Boolean).join('');
 
         // 头部固定三行 + 作业反馈标题
-        parts.push(`${headerGrade}化学「第${headerLecture}讲」${headerName}化学作业反馈`);
+        parts.push(`${headerGrade}寒假化学「第${headerLecture}讲」${headerName}化学作业反馈`);
         parts.push('【作业内容】');
         parts.push(`${headerContent}`);
         parts.push('【作业反馈】');
@@ -1916,8 +2172,6 @@ function wilsonUpperBound(successes, n, z = 1.96) {
           resetBtnSoon();
         }
       };
-
-
 
       copySummaryBtn.addEventListener('click', () => {
         copyText(buildSummaryText());
