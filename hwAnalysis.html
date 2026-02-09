@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>作业/试卷模块失分分析工具</title>
+  <style>
+    :root {
+      /* 干净的蓝紫主题：弱渐变、低饱和、对比舒服 */
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --card: #ffffff;
+      --muted: #5b647a;
+      --text: #0f172a;
+      --accent: #2563eb;
+      /* blue */
+      --accent2: #7c3aed;
+      /* violet */
+      --border: rgba(15, 23, 42, .10);
+      --good: #16a34a;
+      --warn: #d97706;
+      --bad: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 520px at 12% -8%, rgba(37, 99, 235, .10), transparent 60%),
+        radial-gradient(860px 520px at 92% 8%, rgba(124, 58, 237, .08), transparent 62%),
+        linear-gradient(180deg, var(--bg), #ffffff 74%);
+    }
+
+    header {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px 22px 8px;
+    }
+
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .badge {
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid rgba(37, 99, 235, .18);
+      background: rgba(37, 99, 235, .08);
+      color: #1e40af;
+    }
+
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 24px;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 10px 22px 40px;
+      display: grid;
+      grid-template-columns: 1fr minmax(360px, 0.42fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .col-left,
+    .col-right {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    @media (max-width: 1100px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    section.card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 16px 12px;
+      background: var(--card);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+    }
+
+    section.card h2 {
+      margin: 0 0 10px 0;
+      font-size: 17px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 12px rgba(37, 99, 235, .22);
+      flex: 0 0 auto;
+    }
+
+    .upload-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .drop {
+      flex: 1 1 380px;
+      border: 1px dashed rgba(15, 23, 42, .18);
+      border-radius: 12px;
+      padding: 16px;
+      background: rgba(15, 23, 42, .02);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .drop strong {
+      color: var(--text);
+      font-weight: 600
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 12.8px;
+      cursor: pointer;
+      transition: .15s ease;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, .04);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(37, 99, 235, .35);
+      background: rgba(37, 99, 235, .06);
+    }
+
+    .btn:active {
+      transform: translateY(0px)
+    }
+
+    /* 让“复制总结”按钮更大（不影响其他按钮） */
+    #copySummaryBtn {
+      padding: 11px 16px;
+      font-size: 13.8px;
+      border-radius: 12px;
+      min-height: 40px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .error {
+      color: #fecaca;
+      background: rgba(239, 68, 68, .08);
+      border: 1px solid rgba(239, 68, 68, .25);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12.5px;
+      display: none;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .search {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 23, 42, .02);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+    }
+
+    .search input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 12.2px;
+      width: 100%;
+    }
+
+    /* 工具栏里的搜索框：占满一整行，避免提示文字被挤到看不清 */
+    .toolbar .search {
+      margin-left: 0;
+      flex: 1 1 100%;
+      width: 100%;
+      min-width: 260px;
+      max-width: 100%;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, .03);
+      color: var(--muted);
+    }
+
+    /* 工具栏搜索前缀“搜索”加宽：只放大搜索框里的 pill */
+    .toolbar .search .pill {
+      min-width: 56px;
+      text-align: center;
+      padding: 4px 10px;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .col-note {
+      width: 220px;
+    }
+
+    /* 备注列固定在右侧：不用横向滚动也能直接填写备注 */
+    #analysisTable th.col-note,
+    #analysisTable td.col-note {
+      position: sticky;
+      right: 0;
+      z-index: 3;
+      background: var(--card);
+      box-shadow: -10px 0 14px rgba(15, 23, 42, .06);
+    }
+
+    /* 表头层级更高，避免被内容盖住 */
+    #analysisTable thead th.col-note {
+      z-index: 6;
+    }
+
+    .note-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px 8px;
+      font-size: 12px;
+      color: var(--text);
+      background: rgba(15, 23, 42, .02);
+      outline: none;
+    }
+
+    .note-input:disabled {
+      opacity: .55;
+    }
+
+    /* 题号网格视图 */
+    .id-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: 8px;
+    }
+
+    .id-cell {
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, .02);
+      border-radius: 10px;
+      padding: 8px 6px;
+      font-size: 12.4px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: .12s ease;
+    }
+
+    .id-cell:hover {
+      transform: translateY(-1px);
+      border-color: rgba(37, 99, 235, .35);
+    }
+
+    .id-cell.active {
+      border-color: rgba(220, 38, 38, .55);
+      background: rgba(220, 38, 38, .08);
+      color: #7f1d1d;
+    }
+
+    .id-cell .sub {
+      display: block;
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 网格视图备注输入框 */
+    .id-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+    }
+
+    .id-cell .id-main {
+      text-align: center;
+      font-size: 15px;
+      font-weight: 750;
+      line-height: 1.1;
+      letter-spacing: .2px;
+    }
+
+    .id-cell .grid-note {
+      margin-top: 2px;
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 10px;
+    }
+
+    .id-cell.active .grid-note {
+      border-color: rgba(220, 38, 38, .35);
+      background: rgba(220, 38, 38, .04);
+    }
+
+    /* Top3 标题强调样式 */
+    .top3-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.4px;
+      font-weight: 700;
+      letter-spacing: .2px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      width: fit-content;
+      margin-top: 6px;
+    }
+
+    .top3-title.low {
+      color: #7f1d1d;
+      background: linear-gradient(90deg, rgba(220, 38, 38, .12), rgba(220, 38, 38, .04));
+      border-color: rgba(220, 38, 38, .25);
+    }
+
+    .top3-title.high {
+      color: #14532d;
+      background: linear-gradient(90deg, rgba(22, 163, 74, .12), rgba(22, 163, 74, .04));
+      border-color: rgba(22, 163, 74, .25);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, .02);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    /* 仅明细表需要更大的最小宽度用于横向滚动 */
+    #analysisTable {
+      width: 100%;
+      min-width: 820px;
+      /* 原来 980 太宽 */
+      table-layout: fixed;
+      /* 关键：列宽更可控，不会被长文本撑爆 */
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: linear-gradient(180deg, rgba(37, 99, 235, .14), rgba(124, 58, 237, .08));
+      backdrop-filter: blur(6px);
+      text-align: left;
+      font-size: 12px;
+      color: var(--text);
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 8px 10px;
+      font-size: 12.4px;
+      border-bottom: 1px solid rgba(15, 23, 42, .08);
+      vertical-align: top;
+      line-height: 1.45;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    tbody tr:hover {
+      background: rgba(37, 99, 235, .05);
+    }
+
+    /* 行 hover 时，固定备注列背景保持一致 */
+    #analysisTable tbody tr:hover td.col-note {
+      background: rgba(37, 99, 235, .05);
+    }
+
+    #analysisTable tbody tr {
+      cursor: pointer;
+    }
+
+    .col-check {
+      width: 60px;
+    }
+
+    #analysisTable input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .col-id {
+      width: 110px;
+      white-space: nowrap;
+    }
+
+    .col-type {
+      width: 96px;
+    }
+
+    .col-module {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .stat-box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(15, 23, 42, .02);
+    }
+
+    .stat-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      margin: 0 0 6px 0;
+    }
+
+    .stat-line {
+      font-size: 12.2px;
+      color: var(--muted);
+      margin: 2px 0;
+    }
+
+    #wrongIdsPaste {
+      width: 100%;
+      min-height: 64px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12.2px;
+      color: var(--text);
+      background: rgba(15, 23, 42, .02);
+      outline: none;
+    }
+
+    #wrongIdsPaste::placeholder {
+      color: var(--muted);
+    }
+
+    .small-hint {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+
+    /* 导入错题表格模块：更“融入”整体卡片风格（不刺眼） */
+    .wrong-file-box {
+      border: 1px solid var(--border);
+      background: rgba(37, 99, 235, .035);
+      border-radius: 12px;
+      padding: 10px 10px 10px;
+      margin-top: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 左侧细色条，做到“区分但不吵” */
+    .wrong-file-box::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      opacity: .85;
+    }
+
+    /* 红色版本（更醒目）：用于错题集导入模块 */
+    .wrong-file-box.wrong-red {
+      background: rgba(220, 38, 38, .04);
+    }
+
+    .wrong-file-box.wrong-red::before {
+      background: linear-gradient(180deg, rgba(220, 38, 38, .95), rgba(239, 68, 68, .85));
+    }
+
+    .wrong-file-box.wrong-red .btn-wrongfile {
+      border-color: rgba(220, 38, 38, .26);
+      background: rgba(220, 38, 38, .07);
+    }
+
+    .wrong-file-box.wrong-red .btn-wrongfile:hover {
+      border-color: rgba(220, 38, 38, .40);
+      background: rgba(220, 38, 38, .12);
+    }
+
+    .wrong-file-box.wrong-red #wrongBigIdsFromFile {
+      border-color: rgba(220, 38, 38, .22);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .wrong-file-box.wrong-red {
+        background: rgba(248, 113, 113, .07);
+      }
+
+      .wrong-file-box.wrong-red #wrongBigIdsFromFile {
+        border-color: rgba(248, 113, 113, .26);
+      }
+    }
+
+    .wrong-file-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 6px;
+      margin-bottom: 8px;
+    }
+
+    .wrong-file-title {
+      font-size: 12.4px;
+      font-weight: 750;
+      letter-spacing: .2px;
+    }
+
+    .wrong-file-sub {
+      margin-left: auto;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    .btn-wrongfile {
+      border-color: rgba(37, 99, 235, .26);
+      background: rgba(37, 99, 235, .08);
+    }
+
+    .btn-wrongfile:hover {
+      border-color: rgba(37, 99, 235, .40);
+      background: rgba(37, 99, 235, .12);
+    }
+
+    #wrongBigIdsFromFile {
+      background: rgba(255, 255, 255, .55);
+      border: 1px dashed rgba(37, 99, 235, .22);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .wrong-file-box {
+        background: rgba(96, 165, 250, .06);
+      }
+      #wrongBigIdsFromFile {
+        background: rgba(255, 255, 255, .03);
+        border-color: rgba(96, 165, 250, .26);
+      }
+    }
+
+    #wrongModuleSummary {
+      white-space: pre-line;
+    }
+
+    /* 题号汇总不再显示在上方，统一放进输入框里 */
+    #wrongIdsLine {
+      display: none;
+    }
+
+    .rank-list {
+      margin: 6px 0 0 0;
+      padding-left: 16px;
+      font-size: 12.2px;
+      color: var(--muted);
+    }
+
+    .rate {
+      font-variant-numeric: tabular-nums;
+      padding-left: 6px;
+    }
+
+    .rate.good {
+      color: #166534;
+    }
+
+    .rate.warn {
+      color: #92400e;
+    }
+
+    .rate.bad {
+      color: #991b1b;
+    }
+
+    .module-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 12px;
+      min-width: 0;
+    }
+
+    .module-table th,
+    .module-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(15, 23, 42, .08);
+      text-align: left;
+    }
+
+    .module-table th {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    #studentNameInput {
+      width: 160px;
+    }
+
+    /* ----------------------------
+       自动跟随系统深色模式
+       ---------------------------- */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        /* 深色：低对比、低饱和，别刺眼 */
+        --bg: #0b1020;
+        --panel: #0f172a;
+        --card: #0f172a;
+        --muted: #9aa4b2;
+        --text: #e5e7eb;
+        --accent: #60a5fa;
+        /* light blue */
+        --accent2: #a78bfa;
+        /* light violet */
+        --border: rgba(148, 163, 184, .18);
+      }
+
+      body {
+        background:
+          radial-gradient(900px 520px at 12% -8%, rgba(96, 165, 250, .12), transparent 60%),
+          radial-gradient(860px 520px at 92% 8%, rgba(167, 139, 250, .10), transparent 62%),
+          linear-gradient(180deg, var(--bg), #0b1020 74%);
+        color: var(--text);
+      }
+
+      section.card {
+        background: rgba(15, 23, 42, .92);
+        box-shadow: 0 10px 26px rgba(0, 0, 0, .35);
+      }
+
+      .drop,
+      .search,
+      .table-wrap,
+      .stat-box {
+        background: rgba(148, 163, 184, .06);
+        border-color: rgba(148, 163, 184, .20);
+      }
+
+      .btn {
+        background: rgba(255, 255, 255, .04);
+        color: var(--text);
+        border-color: rgba(148, 163, 184, .22);
+        box-shadow: none;
+      }
+
+      .btn:hover {
+        background: rgba(96, 165, 250, .12);
+        border-color: rgba(96, 165, 250, .38);
+      }
+
+      .badge {
+        background: rgba(96, 165, 250, .10);
+        color: rgba(191, 219, 254, .92);
+        border-color: rgba(96, 165, 250, .22);
+      }
+
+      .pill {
+        background: rgba(148, 163, 184, .08);
+        border-color: rgba(148, 163, 184, .22);
+        color: var(--muted);
+      }
+
+      thead th {
+        color: var(--text);
+        background: linear-gradient(180deg, rgba(96, 165, 250, .18), rgba(167, 139, 250, .10));
+        border-bottom-color: rgba(148, 163, 184, .22);
+      }
+
+      tbody td {
+        border-bottom-color: rgba(148, 163, 184, .14);
+      }
+
+      tbody tr:hover {
+        background: rgba(96, 165, 250, .06);
+      }
+
+      .id-cell {
+        background: rgba(148, 163, 184, .06);
+        border-color: rgba(148, 163, 184, .20);
+      }
+
+      .id-cell:hover {
+        border-color: rgba(96, 165, 250, .38);
+      }
+
+      #wrongIdsPaste,
+      .search input,
+      #studentNameInput {
+        background: rgba(255, 255, 255, .04);
+        color: var(--text);
+        border-color: rgba(148, 163, 184, .22);
+      }
+
+      #wrongIdsPaste::placeholder,
+      .search input::placeholder,
+      #studentNameInput::placeholder {
+        color: rgba(154, 164, 178, .85);
+      }
+
+      .error {
+        color: #fecaca;
+        background: rgba(239, 68, 68, .10);
+        border-color: rgba(239, 68, 68, .28);
+      }
+
+      .rate.good {
+        color: #86efac;
+      }
+
+      .rate.warn {
+        color: #fdba74;
+      }
+
+      .rate.bad {
+        color: #fca5a5;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="badges">
+      <span class="badge">前端本地分析</span>
+      <span class="badge">无需 SQL</span>
+      <span class="badge">模块正确率统计</span>
+    </div>
+    <h1>核心考点模块失分分析工具</h1>
+    <p class="subtitle">上传 Excel 后即可按模块统计题量、勾选错题并自动计算各模块正确率 Top3。</p>
+  </header>
+
+  <main>
+    <div class="col-left">
+      <!-- 1. 上传并展示 -->
+      <section class="card">
+        <h2>
+          <span class="dot"></span>
+          1. 上传表格并加载数据
+          <button class="btn" id="copySummaryBtn" type="button" disabled style="margin-left:auto;">
+            复制总结
+          </button>
+        </h2>
+        <div class="upload-row">
+          <div class="drop" id="dropZone">
+            <strong>拖拽 Excel 到这里</strong> 或点击右侧按钮选择文件。<br />
+            需要包含四列：题目编号、题型、考察知识点、核心考点模块。
+          </div>
+          <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" hidden />
+          <button class="btn" id="chooseBtn">选择 Excel</button>
+          <button class="btn" id="demoBtn">加载示例数据</button>
+          <label class="search" style="margin-left:0;">
+            <input id="studentNameInput" type="text" placeholder="学生姓名" />
+            <button class="btn" id="applyNameBtn" type="button">输入</button>
+          </label>
+        </div>
+        <div class="hint" style="margin-top:8px;">
+          默认读取第一个工作表；自动识别表头名称（忽略首尾空格）。
+        </div>
+        <div class="error" id="errorBox"></div>
+
+        <div class="grid-3" style="margin-top:12px;">
+          <div class="stat-box">
+            <p class="stat-title" id="homeworkModuleTitle">作业模块知识点统计</p>
+            <div class="stat-line" id="homeworkModuleSummary">尚未加载数据</div>
+          </div>
+          <div class="stat-box">
+            <p class="stat-title" id="wrongModuleTitle">错题模块总结</p>
+            <div class="stat-line" id="wrongModuleSummary">尚未加载数据</div>
+          </div>
+          <div class="stat-box">
+            <p class="stat-title">模块题量排名</p>
+            <ol class="rank-list" id="moduleCountRank"></ol>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- 表格展示 -->
+      <section class="card">
+        <h2><span class="dot"></span>题目明细表</h2>
+        <div class="table-wrap" id="detailView">
+          <table id="analysisTable">
+            <thead>
+              <tr>
+                <th class="col-check">错题</th>
+                <th class="col-id">题目编号</th>
+                <th class="col-type">题型</th>
+                <th class="col-knowledge">考察知识点</th>
+                <th class="col-module">核心考点模块</th>
+                <th class="col-note">备注</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="stat-box" id="gridView" style="display:none; margin-top:10px;">
+          <div class="hint" style="margin-bottom:8px;">点击题号可快速标记为错题</div>
+          <div class="id-grid" id="idGrid"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-right">
+      <!-- 3. 勾选错题与汇总（移到右侧顶部） -->
+      <section class="card">
+        <h2><span class="dot"></span>3. 勾选错题并输出题号汇总</h2>
+        <div class="toolbar">
+          <button class="btn" id="toggleViewBtn" disabled>网格</button>
+          <button class="btn" id="exportWrongBtn" disabled>复制表格</button>
+          <button class="btn" id="clearAllBtn" disabled>清空</button>
+          <button class="btn" id="selectAllBtn" disabled>全选</button>
+          <span class="hint" id="wrongHint"></span>
+          <label class="search">
+            <span class="pill">搜索</span>
+            <input id="searchInput" type="search" placeholder="按题目编号 / 知识点 / 模块筛选..." />
+          </label>
+        </div>
+        <div class="stat-box">
+          <p class="stat-title">错题题号汇总（可复制错题表格 / 错题集编号）</p>
+          <div class="stat-line" id="wrongIdsLine">（空）</div>
+          <div class="small-hint">可将已有的题号汇总粘贴到下面，系统会自动识别并勾选对应错题。</div>
+          <textarea id="wrongIdsPaste" placeholder="粘贴题号，如：1、3、17(1)③、19(5)"></textarea>
+          <div class="small-hint" id="wrongIdsPasteHint"></div>
+          <div class="wrong-file-box wrong-red">
+            <div class="wrong-file-head">
+              <div class="wrong-file-title">从错题表格生成错题集（按姓名）</div>
+              <div class="wrong-file-sub">两列：姓名 + 错题</div>
+            </div>
+            <div class="toolbar" style="margin:0 0 8px 0; padding-left:6px;">
+              <input id="wrongFileInput" type="file" accept=".xlsx,.xls,.csv" hidden />
+              <button class="btn btn-wrongfile" id="chooseWrongFileBtn" type="button">导入错题表格</button>
+              <button class="btn btn-wrongfile" id="copyWrongSetTableBtn" type="button" disabled>复制错题集表格</button>
+              <span class="hint" id="wrongFileHint"></span>
+            </div>
+            <textarea id="wrongBigIdsFromFile" placeholder="导入后自动生成（例：1、3、7、11…）" readonly style="width:100%; min-height:56px; resize:vertical; border-radius:10px; padding:8px 10px; font-size:12.2px; color:var(--text);"></textarea>
+            <div class="small-hint" style="padding-left:6px;">表头需包含：姓名、错题（两列）。错题示例：1、3、11①、12(3)、17(1)③。</div>
+          </div>
+        </div>
+      </section>
+      <!-- 4. 错题正确率分析（置于右侧上方） -->
+      <section class="card">
+        <h2><span class="dot"></span>4. 错题正确率分析</h2>
+        <div class="stat-box">
+          <p class="stat-title">模块正确率排行</p>
+          <div class="stat-line">以勾选错题为失分依据。模块正确率 = (模块总题量 - 错题数) / 模块总题量；Top3 排名采用 Wilson 置信区间（样本量小的模块不会被轻易评为“最好/最差”）。</div>
+          <div class="top3-title low">最低 Top3</div>
+          <ol class="rank-list" id="lowTop3"></ol>
+          <div class="top3-title high">最高 Top3</div>
+          <ol class="rank-list" id="highTop3"></ol>
+        </div>
+      </section>
+
+      <!-- 2. 模块题量统计（置于右侧下方） -->
+      <section class="card">
+        <h2><span class="dot"></span>2. 模块题量统计</h2>
+        <div class="stat-box">
+          <p class="stat-title">按核心考点模块归类</p>
+          <div class="stat-line" id="totalLine">尚未加载数据</div>
+          <div class="table-wrap" style="margin-top:8px;">
+            <table class="module-table" id="moduleCountTable">
+              <thead>
+                <tr>
+                  <th>核心考点模块</th>
+                  <th>题量</th>
+                  <th>勾选错题数</th>
+                  <th>正确率</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    // ----------------------------
+    // 状态
+    // ----------------------------
+    let dataRows = []; // {id, type, knowledge, module}
+    const wrongSet = new Set(); // store id strings
+    let studentNameFull = '';
+    let syncWrongIdsToTextarea = false; // 勾选/点击导致的变更时，将题号汇总同步进输入框
+    let currentFileName = ''; // 上传的 Excel 文件名（不含路径）
+    let viewMode = 'detail'; // 'detail' | 'grid'
+    const noteMap = new Map(); // 题目编号 -> 备注（可选，可为空）
+
+
+    // ----------------------------
+    // DOM
+    // ----------------------------
+    const fileInput = document.getElementById('fileInput');
+    const chooseBtn = document.getElementById('chooseBtn');
+    const demoBtn = document.getElementById('demoBtn');
+    const dropZone = document.getElementById('dropZone');
+    const errorBox = document.getElementById('errorBox');
+
+    const studentNameInput = document.getElementById('studentNameInput');
+    const applyNameBtn = document.getElementById('applyNameBtn');
+    const copySummaryBtn = document.getElementById('copySummaryBtn');
+    const homeworkModuleTitle = document.getElementById('homeworkModuleTitle');
+    const wrongModuleTitle = document.getElementById('wrongModuleTitle');
+
+    const tableBody = document.querySelector('#analysisTable tbody');
+    const moduleCountBody = document.querySelector('#moduleCountTable tbody');
+
+    const totalLine = document.getElementById('totalLine');
+    const wrongHint = document.getElementById('wrongHint');
+    const wrongIdsLine = document.getElementById('wrongIdsLine');
+    const wrongIdsPaste = document.getElementById('wrongIdsPaste');
+
+    const wrongFileInput = document.getElementById('wrongFileInput');
+    const chooseWrongFileBtn = document.getElementById('chooseWrongFileBtn');
+    const copyWrongSetTableBtn = document.getElementById('copyWrongSetTableBtn');
+    let lastWrongStudentTableText = ''; // TSV: 姓名\t错题集
+    let lastWrongStudentCount = 0;
+
+    async function copyTextToClipboard(text) {
+      const t = String(text || '').trim();
+      if (!t) return false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(t);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = t;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    const wrongBigIdsFromFile = document.getElementById('wrongBigIdsFromFile');
+    const wrongFileHint = document.getElementById('wrongFileHint');
+
+    const lowTop3 = document.getElementById('lowTop3');
+    const highTop3 = document.getElementById('highTop3');
+
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const exportWrongBtn = document.getElementById('exportWrongBtn');
+    const searchInput = document.getElementById('searchInput');
+
+    const homeworkModuleSummary = document.getElementById('homeworkModuleSummary');
+    const wrongModuleSummary = document.getElementById('wrongModuleSummary');
+    const moduleCountRank = document.getElementById('moduleCountRank');
+
+    const toggleViewBtn = document.getElementById('toggleViewBtn');
+    const detailView = document.getElementById('detailView');
+    const gridView = document.getElementById('gridView');
+    const idGrid = document.getElementById('idGrid');
+
+    // ----------------------------
+    // 工具
+    // ----------------------------
+    function showError(msg) {
+      errorBox.style.display = 'block';
+      errorBox.textContent = msg;
+    }
+    function clearError() {
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
+    }
+
+    function normalizeKey(k) {
+      return String(k ?? '').trim();
+    }
+
+    function displayModuleName(m) {
+      // 仅用于展示：去掉形如 “M01 ” 的序号前缀（允许序号后有空格）
+      return String(m ?? '').replace(/^M\d{2}\s*/, '').trim();
+    }
+
+    function splitModules(moduleStr) {
+      const raw = String(moduleStr ?? '').trim();
+      if (!raw) return [];
+
+      let parts = [];
+
+      // 若包含形如 M1/M12 的模块编号，优先按“模块编号片段”切分
+      // 这样可避免把单一模块描述中的顿号误当作分隔符
+      if (/M\d+/.test(raw)) {
+        // 例：
+        // "M1 物质分类、性质与反应类型基础"
+        // "M1 物质分类、性质与反应类型基础、M6 化学计量与溶液浓度计算（含 NA/稀释）"
+        // 目标：提取以 M数字 开头的每一段
+        const re = /M\d+\s*.*?(?=(?:\s*[、，,;；|\/]+\s*)?M\d+|$)/g;
+        parts = (raw.match(re) || [raw]).map(s => s.trim());
+      } else {
+        // 不含 M 编号时，使用常见分隔符切分
+        parts = raw.split(/[\/、，,;；|\n]+/g).map(s => s.trim());
+      }
+
+      parts = parts.filter(Boolean);
+
+      // 去重但保持出现顺序
+      const seen = new Set();
+      const out = [];
+      for (const p of parts) {
+        if (seen.has(p)) continue;
+        seen.add(p);
+        out.push(p);
+      }
+      return out;
+    }
+
+    function pickHeaderMap(headers) {
+      // 允许表头出现空格或轻微差异，但要求语义一致
+      const map = {};
+      for (const h of headers) {
+        const hk = normalizeKey(h);
+        if (!hk) continue;
+        if (hk === '题目编号') map.id = hk;
+        if (hk === '题型') map.type = hk;
+        if (hk === '考察知识点') map.knowledge = hk;
+        if (hk === '核心考点模块') map.module = hk;
+      }
+      return map;
+    }
+
+    function parseSheetToRows(sheet) {
+      // 使用格式化后的显示文本，避免 Excel 将带括号的题号等内容误读为负数
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+      if (json.length === 0) return [];
+
+      const headers = Object.keys(json[0]).map(normalizeKey);
+      const hm = pickHeaderMap(headers);
+
+      const missing = [];
+      if (!hm.id) missing.push('题目编号');
+      if (!hm.type) missing.push('题型');
+      if (!hm.knowledge) missing.push('考察知识点');
+      if (!hm.module) missing.push('核心考点模块');
+
+      if (missing.length) {
+        throw new Error('表头缺失：' + missing.join('、') + '。请确认 Excel 第一行是表头，且列名准确。');
+      }
+
+      const rows = json.map(r => ({
+        id: String(r[hm.id]).trim(),
+        type: String(r[hm.type]).trim(),
+        knowledge: String(r[hm.knowledge]).trim(),
+        module: String(r[hm.module]).trim()
+      })).filter(r => r.id && r.module);
+
+      return rows;
+    }
+
+    function buildModuleTotals(rows) {
+      const totals = new Map();
+      for (const r of rows) {
+        const modules = splitModules(r.module);
+        if (modules.length === 0) {
+          const m = '未归类';
+          totals.set(m, (totals.get(m) || 0) + 1);
+          continue;
+        }
+        // 口径 A：一题计入所有所属模块
+        for (const m of modules) {
+          totals.set(m, (totals.get(m) || 0) + 1);
+        }
+      }
+      return totals;
+    }
+
+    // Wilson 置信区间：解决样本量太小导致的“虚高/虚低”
+function wilsonLowerBound(successes, n, z = 1.96) {
+  if (n <= 0) return 0;
+  const phat = successes / n;
+  const z2 = z * z;
+  const denom = 1 + z2 / n;
+  const center = phat + z2 / (2 * n);
+  const margin = z * Math.sqrt((phat * (1 - phat) + z2 / (4 * n)) / n);
+  return (center - margin) / denom;
+}
+
+function wilsonUpperBound(successes, n, z = 1.96) {
+  if (n <= 0) return 1;
+  const phat = successes / n;
+  const z2 = z * z;
+  const denom = 1 + z2 / n;
+  const center = phat + z2 / (2 * n);
+  const margin = z * Math.sqrt((phat * (1 - phat) + z2 / (4 * n)) / n);
+  return (center + margin) / denom;
+}
+
+    function buildModuleWrongs(rows) {
+      const wrongs = new Map();
+      for (const r of rows) {
+        if (!wrongSet.has(r.id)) continue;
+        const modules = splitModules(r.module);
+        if (modules.length === 0) {
+          const m = '未归类';
+          wrongs.set(m, (wrongs.get(m) || 0) + 1);
+          continue;
+        }
+        // 口径 A：一题计入所有所属模块
+        for (const m of modules) {
+          wrongs.set(m, (wrongs.get(m) || 0) + 1);
+        }
+      }
+      return wrongs;
+    }
+
+    function rateClass(rate) {
+      if (rate >= 0.85) return 'good';
+      if (rate >= 0.6) return 'warn';
+      return 'bad';
+    }
+
+    function formatRate(rate) {
+      return (rate * 100).toFixed(1) + '%';
+    }
+
+    function getDisplayName() {
+      const s = String(studentNameFull || '').trim();
+      if (!s) return '';
+      if (s.length <= 2) return s;
+      return s.slice(-2);
+    }
+
+    function updateNameDecorations() {
+      // 标题保持固定，仅用姓名修饰内容文段
+      if (homeworkModuleTitle) {
+        homeworkModuleTitle.textContent = '作业模块知识点统计';
+      }
+      if (wrongModuleTitle) {
+        const full = String(studentNameFull || '').trim();
+        wrongModuleTitle.textContent = full ? `${full}错题模块总结` : '错题模块总结';
+      }
+    }
+
+    function parseIdList(text) {
+      const raw = String(text ?? '').trim();
+      if (!raw) return [];
+      // 支持中文顿号/逗号、英文逗号、分号、空格、换行
+      return raw.split(/[、，,;；\s\n]+/g)
+        .map(s => String(s || '').trim())
+        .filter(Boolean);
+    }
+
+    function parseWrongCellToItems(cell) {
+      // Split wrong string into items, tolerant to common separators
+      const raw = String(cell ?? '').trim();
+      if (!raw) return [];
+      return raw.split(/[、，,;；\s\n]+/g).map(s => String(s || '').trim()).filter(Boolean);
+    }
+
+    function buildWrongSetForOneStudent(items) {
+      const keep = new Set();
+      const bigCount = new Map();
+
+      for (const it of items) {
+        const s = String(it || '').trim();
+        if (!s) continue;
+
+        // Rule 1: pure digits => keep as-is
+        if (/^\d+$/.test(s)) {
+          keep.add(s);
+          continue;
+        }
+
+        // Rule 2: contains non-digit => big question
+        const m = s.match(/^\d+/);
+        if (!m) continue;
+        const big = m[0];
+        bigCount.set(big, (bigCount.get(big) || 0) + 1);
+      }
+
+      // keep bigId only if appears >= 2
+      for (const [big, cnt] of bigCount.entries()) {
+        if (cnt >= 2) keep.add(big);
+      }
+
+      // sort numerically
+      const arr = Array.from(keep);
+      arr.sort((a, b) => {
+        const na = parseInt(a, 10);
+        const nb = parseInt(b, 10);
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return String(a).localeCompare(String(b), 'zh-CN');
+      });
+      return arr;
+    }
+
+    function pickNameAndWrongColumns(headers) {
+      // headers are normalized (trim)
+      const hs = headers.map(h => String(h ?? '').trim());
+      let nameH = '';
+      let wrongH = '';
+
+      for (const h of hs) {
+        if (!nameH && (h === '姓名' || h.includes('姓名'))) nameH = h;
+        if (!wrongH && (h === '错题' || h.includes('错题'))) wrongH = h;
+      }
+
+      // fallback to first two columns
+      if (!nameH) nameH = hs[0] || '';
+      if (!wrongH) wrongH = hs[1] || hs[0] || '';
+      return { nameH, wrongH };
+    }
+
+    function buildWrongStudentTable(rows, nameKey, wrongKey) {
+      const lines = [];
+      lines.push(['姓名', '错题集'].join('\t'));
+
+      let count = 0;
+      for (const r of rows || []) {
+        const name = String(r?.[nameKey] ?? '').trim();
+        const wrongCell = String(r?.[wrongKey] ?? '').trim();
+        if (!name && !wrongCell) continue;
+        if (!name) continue;
+
+        const items = parseWrongCellToItems(wrongCell);
+        const setArr = buildWrongSetForOneStudent(items);
+        const text = setArr.join('、');
+        lines.push([name.replace(/\t/g, ' '), text.replace(/\t/g, ' ')].join('\t'));
+        count += 1;
+      }
+
+      return { text: lines.join('\n'), count };
+    }
+
+    function extractBigId(id) {
+      const s = String(id ?? '').trim();
+      const m = s.match(/\d+/); // first digit run
+      return m ? m[0] : '';
+    }
+
+    function pickIdColumnFromHeaders(headers) {
+      // Prefer common header names
+      const norm = (h) => String(h ?? '').trim();
+      const hs = headers.map(norm);
+
+      // exact
+      for (const h of hs) {
+        if (h === '题目编号') return h;
+      }
+      // contains
+      for (const h of hs) {
+        if (h.includes('题目编号')) return h;
+        if (h.includes('错题编号')) return h;
+      }
+      // fallback first
+      return hs[0] || '';
+    }
+
+    function buildBigIdsFromWrongTableRows(rows, idKey) {
+      const bigSet = new Set();
+      let rawCount = 0;
+      for (const r of rows) {
+        const v = r[idKey];
+        if (v === undefined || v === null) continue;
+        const id = String(v).trim();
+        if (!id) continue;
+        rawCount += 1;
+        const big = extractBigId(id);
+        if (big) bigSet.add(big);
+      }
+      const uniq = Array.from(bigSet);
+      uniq.sort((a, b) => {
+        const na = parseInt(a, 10);
+        const nb = parseInt(b, 10);
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return String(a).localeCompare(String(b), 'zh-CN');
+      });
+      return { text: uniq.join('、'), bigCount: uniq.length, rawCount };
+    }
+
+    async function handleWrongTableFile(file) {
+      if (!file) return;
+      if (wrongFileHint) wrongFileHint.textContent = '';
+      if (wrongBigIdsFromFile) wrongBigIdsFromFile.value = '';
+      lastWrongStudentTableText = '';
+      lastWrongStudentCount = 0;
+      if (copyWrongSetTableBtn) copyWrongSetTableBtn.disabled = true;
+
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const firstName = wb.SheetNames[0];
+        if (!firstName) throw new Error('未找到工作表。');
+        const sheet = wb.Sheets[firstName];
+
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+        if (!json || json.length === 0) throw new Error('未解析到数据行。');
+
+        const headers = Object.keys(json[0]).map(normalizeKey);
+        const { nameH, wrongH } = pickNameAndWrongColumns(headers);
+
+        // Because json keys are the original header strings, map normalized -> original
+        const originalKeys = Object.keys(json[0]);
+        const keyMap = new Map();
+        for (const ok of originalKeys) keyMap.set(normalizeKey(ok), ok);
+        const nameKey = keyMap.get(nameH) || originalKeys[0];
+        const wrongKey = keyMap.get(wrongH) || originalKeys[Math.min(1, originalKeys.length - 1)] || originalKeys[0];
+
+        // Build per-student wrong-set table
+        const { text, count } = buildWrongStudentTable(json, nameKey, wrongKey);
+        lastWrongStudentTableText = text;
+        lastWrongStudentCount = count;
+
+        // For the small textarea preview, show all distinct bigIds across all students (optional)
+        // Here we reuse the preview textarea as: show the first 6 lines of the student table (excluding header)
+        const previewLines = text.split('\n');
+        const showLines = previewLines.length <= 7 ? previewLines : previewLines.slice(0, 7).concat(['...']);
+        if (wrongBigIdsFromFile) wrongBigIdsFromFile.value = showLines.join('\n');
+
+        if (count === 0) {
+          if (wrongFileHint) wrongFileHint.textContent = '未识别到有效行。请确认表头包含：姓名、错题。';
+          return;
+        }
+
+        if (copyWrongSetTableBtn) copyWrongSetTableBtn.disabled = false;
+        if (wrongFileHint) wrongFileHint.textContent = `已读取 ${count} 位学生（列：${nameKey} / ${wrongKey}）`;
+
+        // “错题集编号”按钮不再适用于该格式，改为复制“错题集表格”即可
+      } catch (err) {
+        if (wrongFileHint) wrongFileHint.textContent = '';
+        showError(err?.message || String(err));
+      }
+    }
+
+    function applyWrongIdsFromText(text) {
+      if (dataRows.length === 0) return { inputCount: 0, matchedCount: 0 };
+      const ids = parseIdList(text);
+      const inputCount = ids.length;
+      const valid = new Set(dataRows.map(r => r.id));
+      const matched = ids.filter(id => valid.has(id));
+
+      wrongSet.clear();
+      for (const id of matched) {
+        wrongSet.add(id);
+      }
+
+      return { inputCount, matchedCount: matched.length };
+    }
+
+    function getModuleStats() {
+      const totals = buildModuleTotals(dataRows);
+      const wrongs = buildModuleWrongs(dataRows);
+      const stats = [];
+      for (const [m, t] of totals.entries()) {
+        const w = wrongs.get(m) || 0;
+        const rate = t === 0 ? 1 : (t - w) / t;
+        stats.push({ m, t, w, rate });
+      }
+      return stats;
+    }
+
+    function copyWrongsTableToClipboard() {
+      const btn = exportWrongBtn;
+      const setBtn = (label) => { if (btn) btn.textContent = label; };
+      const resetBtnSoon = () => {
+        setTimeout(() => {
+          if (btn) btn.textContent = '复制表格';
+        }, 900);
+      };
+
+      if (dataRows.length === 0) {
+        setBtn('无数据');
+        resetBtnSoon();
+        return;
+      }
+
+      // 只复制已勾选错题
+      const rows = dataRows.filter(r => wrongSet.has(r.id));
+      if (rows.length === 0) {
+        setBtn('未选错题');
+        resetBtnSoon();
+        return;
+      }
+
+      // 排序：尽量按数字前缀
+      rows.sort((a, b) => {
+        const na = parseFloat(String(a.id).match(/^\d+(\.\d+)?/)?.[0] || 'NaN');
+        const nb = parseFloat(String(b.id).match(/^\d+(\.\d+)?/)?.[0] || 'NaN');
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return String(a.id).localeCompare(String(b.id), 'zh-CN');
+      });
+
+      const fullName = String(studentNameFull || '').trim();
+      const h1 = fullName ? `${fullName}错题编号` : '题目编号';
+      const headers = [h1, '题型', '考察知识点', '核心考点模块', '备注'];
+
+      const cleanCell = (v) => {
+        return String(v ?? '')
+          .replace(/\t/g, ' ')
+          .replace(/\r?\n/g, ' ')
+          .trim();
+      };
+
+      const lines = [];
+      lines.push(headers.join('\t'));
+      for (const r of rows) {
+        lines.push([
+          cleanCell(r.id),
+          cleanCell(r.type),
+          cleanCell(r.knowledge),
+          cleanCell(r.module),
+          cleanCell(noteMap.get(r.id) || '')
+        ].join('\t'));
+      }
+
+      const text = lines.join('\n');
+
+      const copyText = async (t) => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(t);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = t;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          setBtn('已复制 ✅');
+          resetBtnSoon();
+        } catch (err) {
+          setBtn('复制失败');
+          resetBtnSoon();
+        }
+      };
+
+      copyText(text);
+    }
+
+
+
+    function renderHomeworkModuleSummary() {
+      if (!homeworkModuleSummary) return;
+      if (dataRows.length === 0) {
+        homeworkModuleSummary.textContent = '尚未加载数据';
+        return;
+      }
+      const totals = buildModuleTotals(dataRows);
+      const arr = Array.from(totals.entries())
+        .map(([m, t]) => ({ m, t }))
+        .sort((a, b) => b.t - a.t || a.m.localeCompare(b.m, 'zh-CN'))
+        .slice(0, 4);
+
+      const names = arr.map(x => displayModuleName(x.m));
+      const dn = getDisplayName();
+      const prefix = dn ? `${dn}` : '';
+      homeworkModuleSummary.textContent = names.length
+        ? `${prefix}本讲作业涉及${names.join('、')}等模块。`
+        : `${prefix}未识别到有效模块。`;
+    }
+
+    function renderWrongModuleSummary() {
+      if (!wrongModuleSummary) return;
+      if (dataRows.length === 0) {
+        wrongModuleSummary.textContent = '尚未加载数据';
+        return;
+      }
+      const stats = getModuleStats();
+      if (stats.length === 0) {
+        const dn = getDisplayName();
+        const prefix = dn ? `${dn}` : '';
+        wrongModuleSummary.textContent = `${prefix}未识别到有效模块。`;
+        return;
+      }
+
+      // 使用 Wilson 置信区间做更“科学”的强弱模块判断（防止小样本 1/1 被误判为最强）
+      const withWilson = stats.map(s => {
+        const successes = Math.max(0, (s.t || 0) - (s.w || 0));
+        const n = s.t || 0;
+        const lower = wilsonLowerBound(successes, n);
+        const upper = wilsonUpperBound(successes, n);
+        return { ...s, successes, lower, upper };
+      });
+
+      // 强模块：按下界排序（保守估计仍高才算强）
+      const high = [...withWilson]
+        .sort((a, b) => b.lower - a.lower || b.rate - a.rate)
+        .slice(0, Math.min(3, withWilson.length));
+
+      // 弱模块：按上界排序（乐观估计都低才算弱）
+      const low = [...withWilson]
+        .sort((a, b) => a.upper - b.upper || a.rate - b.rate)
+        .slice(0, Math.min(3, withWilson.length));
+
+      const lowNames = low.map(s => displayModuleName(s.m));
+      const highNames = high.map(s => displayModuleName(s.m));
+
+      const dn = getDisplayName();
+      const prefix = dn ? `${dn}` : '';
+      const lines = [];
+      if (highNames.length) lines.push(`${prefix}相对掌握较好的模块有${highNames.join('、')}；`);
+      if (lowNames.length) lines.push(`${prefix}的错题集中在${lowNames.join('、')}等模块。`);
+
+      wrongModuleSummary.textContent = lines.join('\n') || `${prefix}暂无可用总结。`;
+    }
+
+    function renderModuleCountRank() {
+      if (!moduleCountRank) return;
+      moduleCountRank.innerHTML = '';
+      if (dataRows.length === 0) return;
+
+      const totals = buildModuleTotals(dataRows);
+      const arr = Array.from(totals.entries())
+        .map(([m, t]) => ({ m, t }))
+        .sort((a, b) => b.t - a.t || a.m.localeCompare(b.m, 'zh-CN'));
+
+      for (const item of arr) {
+        const li = document.createElement('li');
+        li.textContent = `${item.m}（${item.t}题）`;
+        moduleCountRank.appendChild(li);
+      }
+    }
+
+    // ----------------------------
+    // 渲染
+    // ----------------------------
+    function renderTable(filterText = '') {
+      tableBody.innerHTML = '';
+      const ft = String(filterText || '').trim().toLowerCase();
+
+      const rows = dataRows.filter(r => {
+        if (!ft) return true;
+        return (
+          r.id.toLowerCase().includes(ft) ||
+          r.type.toLowerCase().includes(ft) ||
+          r.knowledge.toLowerCase().includes(ft) ||
+          r.module.toLowerCase().includes(ft)
+        );
+      });
+
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-row-id', r.id);
+
+        const checked = wrongSet.has(r.id) ? 'checked' : '';
+        const noteVal = noteMap.get(r.id) || '';
+        const noteDisabled = wrongSet.has(r.id) ? '' : 'disabled';
+
+        tr.innerHTML = `
+  <td class="col-check">
+    <input type="checkbox" data-id="${escapeHtml(r.id)}" ${checked} />
+  </td>
+  <td class="col-id"><span class="pill">${escapeHtml(r.id)}</span></td>
+  <td class="col-type">${escapeHtml(r.type)}</td>
+  <td class="col-knowledge">${escapeHtml(r.knowledge)}</td>
+  <td class="col-module">${escapeHtml(r.module)}</td>
+  <td class="col-note">
+    <input class="note-input"
+      data-note-id="${escapeHtml(r.id)}"
+      value="${escapeHtml(noteVal)}"
+      placeholder="可选：错因/备注"
+      ${noteDisabled} />
+  </td>
+`;
+
+        // 点击整行可切换错题勾选（点击复选框本身不重复触发）
+        tr.addEventListener('click', (e) => {
+          if (e.target && e.target.closest && (e.target.closest('input[type="checkbox"]') || e.target.closest('input.note-input'))) return;
+          const id = tr.getAttribute('data-row-id');
+          if (!id) return;
+
+          if (wrongSet.has(id)) wrongSet.delete(id);
+          else wrongSet.add(id);
+          syncWrongIdsToTextarea = true;
+          updateAllStats();
+
+        });
+
+        tableBody.appendChild(tr);
+      }
+
+      // 绑定 checkbox 事件
+      tableBody.querySelectorAll('input[type="checkbox"][data-id]').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          const id = e.target.getAttribute('data-id');
+
+          if (e.target.checked) wrongSet.add(id);
+          else wrongSet.delete(id);
+          syncWrongIdsToTextarea = true;
+          updateAllStats();
+        });
+      });
+
+      // 绑定备注输入事件（备注可为空；空则不保存）
+      tableBody.querySelectorAll('input.note-input[data-note-id]').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          const id = e.target.getAttribute('data-note-id');
+          const v = String(e.target.value || '').trim();
+          if (!v) noteMap.delete(id);
+          else noteMap.set(id, v);
+        });
+      });
+
+
+    }
+
+    function renderModuleStats() {
+      moduleCountBody.innerHTML = '';
+
+      if (dataRows.length === 0) {
+        totalLine.textContent = '尚未加载数据';
+        return;
+      }
+
+      const totals = buildModuleTotals(dataRows);
+      const wrongs = buildModuleWrongs(dataRows);
+
+      const modules = Array.from(totals.keys()).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+      const totalQ = dataRows.length;
+      totalLine.textContent = `已加载 ${totalQ} 题，覆盖 ${modules.length} 个模块`;
+
+      for (const m of modules) {
+        const t = totals.get(m) || 0;
+        const w = wrongs.get(m) || 0;
+        const rate = t === 0 ? 1 : (t - w) / t;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(m)}</td>
+          <td>${t}</td>
+          <td>${w}</td>
+          <td><span class="rate ${rateClass(rate)}">${formatRate(rate)}</span></td>
+        `;
+        moduleCountBody.appendChild(tr);
+      }
+    }
+
+    function renderTop3() {
+  lowTop3.innerHTML = '';
+  highTop3.innerHTML = '';
+
+  if (dataRows.length === 0) return;
+
+  const stats = getModuleStats();
+  if (stats.length === 0) return;
+
+  // 用 Wilson 置信区间做更“科学”的排名
+  const withWilson = stats.map(s => {
+    const successes = Math.max(0, (s.t || 0) - (s.w || 0)); // 正确数
+    const n = s.t || 0;
+    const lower = wilsonLowerBound(successes, n);
+    const upper = wilsonUpperBound(successes, n);
+    return { ...s, successes, lower, upper };
+  });
+
+  // 最低 Top3：按“正确率上界”从低到高排（更保守：即使乐观估计都低 → 真弱）
+  const low = [...withWilson]
+    .sort((a, b) => a.upper - b.upper || a.rate - b.rate)
+    .slice(0, Math.min(3, withWilson.length));
+
+  // 最高 Top3：按“正确率下界”从高到低排（更保守：即使悲观估计也高 → 真强）
+  const high = [...withWilson]
+    .sort((a, b) => b.lower - a.lower || b.rate - a.rate)
+    .slice(0, Math.min(3, withWilson.length));
+
+  for (const s of low) {
+    const li = document.createElement('li');
+    li.innerHTML = `${escapeHtml(s.m)}：${s.w}/${s.t} 错题 <span class="rate ${rateClass(s.rate)}">(${formatRate(s.rate)})</span> <span class="pill">上界 ${formatRate(s.upper)}</span>`;
+    lowTop3.appendChild(li);
+  }
+
+  for (const s of high) {
+    const li = document.createElement('li');
+    li.innerHTML = `${escapeHtml(s.m)}：${s.w}/${s.t} 错题 <span class="rate ${rateClass(s.rate)}">(${formatRate(s.rate)})</span> <span class="pill">下界 ${formatRate(s.lower)}</span>`;
+    highTop3.appendChild(li);
+  }
+}
+
+    function renderWrongIds() {
+      const ids = Array.from(wrongSet);
+      // 尝试按数字前缀排序，兼容 17(1) 这类
+      ids.sort((a, b) => {
+        const na = parseFloat(String(a).match(/^\d+(\.\d+)?/)?.[0] || 'NaN');
+        const nb = parseFloat(String(b).match(/^\d+(\.\d+)?/)?.[0] || 'NaN');
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return String(a).localeCompare(String(b), 'zh-CN');
+      });
+
+      // 不再在上方展示题号；选择/勾选时同步到输入框，便于直接复制
+      if (syncWrongIdsToTextarea && wrongIdsPaste) {
+        const next = ids.length ? ids.join('、') : '';
+        if (wrongIdsPaste.value !== next) {
+          wrongIdsPaste.value = next;
+        }
+      }
+      if (wrongHint) {
+        wrongHint.textContent = '';
+      }
+    }
+
+    function updateButtonsState() {
+      const hasData = dataRows.length > 0;
+      // const hasName = !!getDisplayName();
+      selectAllBtn.disabled = !hasData;
+      clearAllBtn.disabled = !hasData;
+      exportWrongBtn.disabled = !(hasData && wrongSet.size > 0);
+      if (toggleViewBtn) toggleViewBtn.disabled = !hasData;
+      if (copySummaryBtn) copySummaryBtn.disabled = !hasData;
+    }
+
+
+    function updateAllStats() {
+      renderWrongIds();
+      updateNameDecorations();
+      renderModuleStats();
+      renderTop3();
+      renderHomeworkModuleSummary();
+      renderWrongModuleSummary();
+      renderModuleCountRank();
+      // 表格中勾选状态可能需要同步（当用全选/清空时）
+      renderTable(searchInput.value || '');
+      if (viewMode === 'grid') renderGrid(searchInput.value || '');
+      applyViewMode();
+      updateButtonsState();
+      // 默认只在“勾选/点击”触发的那一次把题号回填到输入框
+      syncWrongIdsToTextarea = false;
+
+      if (wrongIdsPasteHint && wrongIdsPaste) {
+        const ids = parseIdList(wrongIdsPaste.value);
+        if (ids.length === 0) {
+          wrongIdsPasteHint.textContent = '';
+        } else {
+          const valid = new Set(dataRows.map(r => r.id));
+          const matchedCount = ids.filter(id => valid.has(id)).length;
+          wrongIdsPasteHint.textContent = `已识别 ${matchedCount} 个有效题号（共粘贴 ${ids.length} 个）。`;
+        }
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", "&#39;");
+    }
+
+    // ----------------------------
+    // 题号网格视图 & 视图切换
+    // ----------------------------
+    function renderGrid(filterText = '') {
+      if (!idGrid) return;
+      idGrid.innerHTML = '';
+
+      const ft = String(filterText || '').trim().toLowerCase();
+      const rows = dataRows.filter(r => {
+        if (!ft) return true;
+        return (
+          r.id.toLowerCase().includes(ft) ||
+          r.type.toLowerCase().includes(ft) ||
+          r.knowledge.toLowerCase().includes(ft) ||
+          r.module.toLowerCase().includes(ft)
+        );
+      });
+
+      for (const r of rows) {
+        const cell = document.createElement('div');
+        const isWrong = wrongSet.has(r.id);
+        cell.className = 'id-cell' + (isWrong ? ' active' : '');
+        cell.title = `${r.id}\n${r.module}`;
+        const noteVal = noteMap.get(r.id) || '';
+        const noteDisabled = isWrong ? '' : 'disabled';
+        cell.innerHTML = `
+          <div class="id-main">${escapeHtml(r.id)}</div>
+          <input class="note-input grid-note"
+            data-note-id="${escapeHtml(r.id)}"
+            value="${escapeHtml(noteVal)}"
+            placeholder="备注"
+            ${noteDisabled} />
+        `;
+        cell.addEventListener('click', () => {
+          if (wrongSet.has(r.id)) wrongSet.delete(r.id);
+          else wrongSet.add(r.id);
+          syncWrongIdsToTextarea = true;
+          updateAllStats();
+        });
+        // 备注输入框事件绑定
+        const noteInp = cell.querySelector('input.grid-note[data-note-id]');
+        if(noteInp){
+          noteInp.addEventListener('click', (e)=> e.stopPropagation());
+          noteInp.addEventListener('keydown', (e)=> e.stopPropagation());
+          noteInp.addEventListener('input', (e)=>{
+            const id = e.target.getAttribute('data-note-id');
+            const v = String(e.target.value || '').trim();
+            if(!v) noteMap.delete(id);
+            else noteMap.set(id, v);
+          });
+        }
+        idGrid.appendChild(cell);
+      }
+    }
+
+    function updateViewToggleLabel() {
+      if (!toggleViewBtn) return;
+      toggleViewBtn.textContent = viewMode === 'detail'
+        ? '网格'
+        : '明细';
+    }
+
+    function applyViewMode() {
+      if (detailView) detailView.style.display = viewMode === 'detail' ? '' : 'none';
+      if (gridView) gridView.style.display = viewMode === 'grid' ? '' : 'none';
+      updateViewToggleLabel();
+      if (viewMode === 'grid') renderGrid(searchInput?.value || '');
+    }
+
+    // ----------------------------
+    // 事件：文件读取
+    // ----------------------------
+    chooseBtn.addEventListener('click', () => fileInput.click());
+
+    if (chooseWrongFileBtn && wrongFileInput) {
+      chooseWrongFileBtn.addEventListener('click', () => wrongFileInput.click());
+      wrongFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (file) await handleWrongTableFile(file);
+        wrongFileInput.value = '';
+      });
+    }
+
+
+    if (copyWrongSetTableBtn) {
+      copyWrongSetTableBtn.addEventListener('click', async () => {
+        const text = String(lastWrongStudentTableText || '').trim();
+        if (!text) return;
+        const ok = await copyTextToClipboard(text);
+        copyWrongSetTableBtn.textContent = ok ? '已复制 ✅' : '复制失败';
+        setTimeout(() => { copyWrongSetTableBtn.textContent = '复制错题集表格'; }, 900);
+      });
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (file) await handleFile(file);
+      fileInput.value = '';
+    });
+
+    async function handleFile(file) {
+      clearError();
+      currentFileName = file?.name || '';
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const firstName = wb.SheetNames[0];
+        if (!firstName) throw new Error('未找到工作表。');
+        const sheet = wb.Sheets[firstName];
+        const rows = parseSheetToRows(sheet);
+
+        if (rows.length === 0) {
+          throw new Error('未解析到有效数据行。请确认题目编号与核心考点模块不为空。');
+        }
+
+        dataRows = rows;
+        wrongSet.clear();
+        noteMap.clear();
+
+        updateAllStats();
+      } catch (err) {
+        showError(err.message || String(err));
+      }
+    }
+
+    // 拖拽
+    ;['dragenter', 'dragover'].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault(); e.stopPropagation();
+        dropZone.style.borderColor = 'rgba(139,155,255,.6)';
+      });
+    });
+    ;['dragleave', 'drop'].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault(); e.stopPropagation();
+        dropZone.style.borderColor = 'rgba(2,6,23,.18)';
+      });
+    });
+    dropZone.addEventListener('drop', async (e) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (file) await handleFile(file);
+    });
+
+    // ----------------------------
+    // 示例数据（方便你先试流程）
+    // ----------------------------
+    demoBtn.addEventListener('click', () => {
+      clearError();
+      currentFileName = '';
+      dataRows = [
+        { id: '1', type: '选择题', knowledge: '物质分类基础', module: '物质分类与基本概念' },
+        { id: '2', type: '选择题', knowledge: '铁离子转化', module: '铁及其化合物' },
+        { id: '3', type: '选择题', knowledge: '铁离子检验', module: '离子反应与溶液化学' },
+        { id: '4', type: '选择题', knowledge: '装置识读', module: '化学实验与装置' },
+        { id: '5', type: '填空', knowledge: '电子守恒计算', module: '物质的量与定量计算' },
+        { id: '6', type: '填空', knowledge: '流程除杂', module: '工艺流程与绿色化学' },
+        { id: '7', type: '选择题', knowledge: '含氯漂白', module: '氯及含氯消毒漂白' },
+        { id: '8', type: '选择题', knowledge: '装置评价', module: '化学实验与装置' },
+        { id: '19(5)', type: '填空', knowledge: '示例：带括号题号', module: '离子反应与溶液化学' }
+      ];
+      wrongSet.clear();
+      noteMap.clear();
+      updateAllStats();
+    });
+
+    // ----------------------------
+    // 全选 / 清空
+    // ----------------------------
+    selectAllBtn.addEventListener('click', () => {
+      for (const r of dataRows) wrongSet.add(r.id);
+      syncWrongIdsToTextarea = true;
+      updateAllStats();
+    });
+    clearAllBtn.addEventListener('click', () => {
+      wrongSet.clear();
+      syncWrongIdsToTextarea = true;
+      updateAllStats();
+    });
+
+    exportWrongBtn.addEventListener('click', () => {
+      copyWrongsTableToClipboard();
+    });
+
+
+    if (toggleViewBtn) {
+      toggleViewBtn.addEventListener('click', () => {
+        viewMode = viewMode === 'detail' ? 'grid' : 'detail';
+        applyViewMode();
+      });
+    }
+
+    // ----------------------------
+    // 搜索筛选
+    // ----------------------------
+    searchInput.addEventListener('input', () => {
+      const v = searchInput.value || '';
+      renderTable(v);
+      if (viewMode === 'grid') renderGrid(v);
+    });
+
+    if (studentNameInput && applyNameBtn) {
+      const applyName = () => {
+        studentNameFull = studentNameInput.value || '';
+        updateAllStats();
+      };
+      applyNameBtn.addEventListener('click', applyName);
+      studentNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyName();
+        }
+      });
+    } else if (studentNameInput) {
+      // 兜底：若按钮不存在，仍可实时更新
+      studentNameInput.addEventListener('input', (e) => {
+        studentNameFull = e.target.value || '';
+        updateAllStats();
+      });
+    }
+
+    if (copySummaryBtn) {
+      const buildSummaryText = () => {
+        const aRaw = homeworkModuleSummary?.textContent || '';
+        const bRaw = wrongModuleSummary?.textContent || '';
+
+        // 轻度清洗：保留换行，但去掉多余空白
+        const clean = (s) => {
+          return String(s || '')
+            .replace(/\r\n/g, '\n')
+            .replace(/\s*\n\s*/g, '\n')
+            .replace(/[\t ]{2,}/g, ' ')
+            .trim();
+        };
+
+        const a = clean(aRaw);
+        const b = clean(bRaw);
+
+        // b 目前由 renderWrongModuleSummary() 生成，通常是两行：
+        // 1) 掌握较好的模块...；
+        // 2) 错题集中在...。
+        const bLines = b ? b.split('\n').map(x => x.trim()).filter(Boolean) : [];
+        const goodLine = bLines.find(x => x.includes('掌握较好')) || '';
+        const wrongLine = bLines.find(x => x.includes('错题集中')) || (bLines.length ? bLines[bLines.length - 1] : '');
+
+        const parts = [];
+
+        // 从文件名解析：年级-x-作业内容（失败则全部留空）
+        const parseMetaFromFilename = (fn) => {
+          const base = String(fn || '').trim().replace(/\.[^.]+$/, '');
+          if (!base) return null;
+          const segs = base.split('-').map(s => s.trim()).filter(Boolean);
+          if (segs.length < 3) return null;
+          const grade = segs[0] || '';
+          const lectureRaw = segs[1] || '';
+          const content = segs.slice(2).join('-').trim();
+          if (!grade || !lectureRaw || !content) return null;
+          const lectureNum = (lectureRaw.match(/\d+/) || [])[0] || lectureRaw;
+          if (!lectureNum) return null;
+          return { grade, lecture: lectureNum, content };
+        };
+
+        const meta = parseMetaFromFilename(currentFileName);
+        const headerGrade = meta?.grade || '';
+        const headerLecture = meta?.lecture || '';
+        const headerContent = meta?.content || '';
+        // 需求：若文件名无法正确识别，则“全部留空”（包含姓名）
+        const headerName = meta ? (String(studentNameFull || '').trim()) : '';
+
+        // 处理“做得好的地方”：去掉末尾分号/句号，并统一以“等模块。”结尾
+        let goodText = goodLine ? String(goodLine).trim() : '';
+        if (goodText) {
+          goodText = goodText.replace(/[；;。]\s*$/g, '');
+          // 如果已经包含“等模块”，只补句号；否则补“等模块。”
+          if (/等模块\s*$/.test(goodText)) {
+            goodText = goodText.replace(/等模块\s*$/, '等模块。');
+          } else if (/等模块。\s*$/.test(goodText)) {
+            // ok
+          } else {
+            goodText = goodText + '等模块。';
+          }
+        }
+
+        // 第一段：作业反馈内容（作业概况 + 做得好的地方）不分段
+        const firstPara = [a, goodText].filter(Boolean).join('');
+
+        // 头部固定三行 + 作业反馈标题
+        parts.push(`${headerGrade}寒假化学「第${headerLecture}讲」${headerName}化学作业反馈`);
+        parts.push('【作业内容】');
+        parts.push(`${headerContent}`);
+        parts.push('【作业反馈】');
+        if (firstPara) parts.push(firstPara);
+
+        // 第二段：错题分析（分行显示）
+        parts.push('【错题分析】');
+        if (wrongLine) parts.push(String(wrongLine).trim());
+
+        return parts.join('\n');
+      };
+
+      const copyText = async (text) => {
+        // 不弹窗：用按钮文案反馈复制结果
+        const setBtn = (label) => {
+          if (!copySummaryBtn) return;
+          copySummaryBtn.textContent = label;
+        };
+        const resetBtnSoon = () => {
+          setTimeout(() => {
+            if (copySummaryBtn) copySummaryBtn.textContent = '复制总结';
+          }, 900);
+        };
+
+        if (!text) {
+          setBtn('无内容');
+          resetBtnSoon();
+          return;
+        }
+
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          setBtn('复制成功 ✅');
+          resetBtnSoon();
+        } catch (err) {
+          setBtn('复制失败');
+          resetBtnSoon();
+        }
+      };
+
+      copySummaryBtn.addEventListener('click', () => {
+        copyText(buildSummaryText());
+      });
+    }
+
+    if (wrongIdsPaste) {
+      wrongIdsPaste.addEventListener('input', () => {
+        // 输入框是来源：不要在本次更新中用勾选结果覆盖输入框
+        syncWrongIdsToTextarea = false;
+        const { inputCount, matchedCount } = applyWrongIdsFromText(wrongIdsPaste.value);
+        if (wrongIdsPasteHint) {
+          if (inputCount === 0) wrongIdsPasteHint.textContent = '';
+          else wrongIdsPasteHint.textContent = `已识别 ${matchedCount} 个有效题号（共粘贴 ${inputCount} 个）。`;
+        }
+        updateAllStats();
+      });
+    }
+
+    // 初始渲染空表
+    renderTable();
+    applyViewMode();
+    updateButtonsState();
+    renderModuleCountRank();
+    updateNameDecorations();
+  </script>
+</body>
+
+</html>
